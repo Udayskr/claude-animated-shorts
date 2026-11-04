@@ -107,6 +107,6 @@ jobs:
           path: |
             out/animated-short.mp4
             out/captions.srt
-            out/words.json
+            out/segments.json
           if-no-files-found: error
           retention-days: 7
