@@ -29,7 +29,7 @@ on:
           - en-US-JennyNeural
         default: en-US-GuyNeural
       duration_seconds:
-        description: "Render length in seconds (5 to 67)"
+        description: "Minimum render length in seconds (5 to 67); longer voice automatically extends video"
         required: true
         type: string
         default: "10"
@@ -109,18 +109,13 @@ jobs:
           if render_seconds > 67:
               raise SystemExit("The narration plus ending buffer exceeds the 67-second render limit.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"render_seconds={render_seconds}\\n")
-              output.write(f"last_frame={render_seconds * 30 - 1}\\n")
+              output.write("render_seconds=" + str(render_seconds) + "\n")
+              output.write("last_frame=" + str(render_seconds * 30 - 1) + "\n")
           print(f"Voice: {audio_seconds:.2f}s; video render: {render_seconds}s")
           PY
 
       - name: Render vertical MP4 (optimized preview quality)
-        run: |
-          mkdir -p out
-          npx remotion render src/index.ts BridgeShort out/animated-short.mp4 \\
-            --frames="0-${{ steps.duration.outputs.last_frame }}" \\
-            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":0.7}}' \\
-            --codec=h264 --crf=18 --concurrency=2
+        run: npx remotion render src/index.ts BridgeShort out/animated-short.mp4 --frames="0-${{ steps.duration.outputs.last_frame }}" --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":0.7}}' --codec=h264 --crf=18 --concurrency=2
 
       - name: Upload MP4 and subtitle files
         uses: actions/upload-artifact@v4
