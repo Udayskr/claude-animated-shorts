@@ -11,7 +11,7 @@ This fork includes a cloud rendering workflow. It can be used from the GitHub mo
 5. Open **Actions**, select the latest **Render animated short** run, and wait for it to finish.
 6. Download the `animated-short-...` artifact.
 
-The artifact contains the MP4, an SRT subtitle file, and the word timing JSON. Keep the first test at 10 seconds.
+The artifact contains the MP4, an SRT subtitle file, and the caption timing JSON. Keep the first test at 10 seconds.
 
 ## Current test limits
 
