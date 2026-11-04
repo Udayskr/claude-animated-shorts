@@ -67,7 +67,7 @@ def group_words(words):
 
 
 async def synthesize(text: str, voice: str):
-    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
+    communicate = edge_tts.Communicate(text, voice, boundary="SentenceBoundary")
     audio = bytearray()
     words = []
 
@@ -76,7 +76,7 @@ async def synthesize(text: str, voice: str):
         data = chunk.get("data", {})
         if kind == "audio":
             audio.extend(data)
-        elif kind == "WordBoundary":
+        elif kind in ("WordBoundary", "SentenceBoundary"):
             offset = int(data.get("offset", 0)) / 10_000_000
             duration = int(data.get("duration", 0)) / 10_000_000
             token = str(data.get("text", "")).strip()
@@ -142,14 +142,14 @@ async def main():
         encoding="utf-8",
     )
     (out_dir / "captions.srt").write_text("\n".join(srt_lines), encoding="utf-8")
-    (out_dir / "words.json").write_text(
+    (out_dir / "segments.json").write_text(
         json.dumps(words, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
     print(f"Voice: {voice}")
     print(f"Audio bytes: {len(audio):,}")
-    print(f"Timed words: {len(words)}")
+    print(f"Timed caption segments: {len(words)}")
     print(f"Subtitle cues: {len(frame_captions)}")
 
 
