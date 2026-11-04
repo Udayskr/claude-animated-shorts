@@ -67,7 +67,7 @@ def group_words(words):
 
 
 async def synthesize(text: str, voice: str):
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
     audio = bytearray()
     words = []
 
