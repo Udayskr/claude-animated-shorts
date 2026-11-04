@@ -160,6 +160,10 @@ async def main():
     audio_path = public_dir / "voice.mp3"
     audio_path.write_bytes(audio)
     audio_duration = get_audio_duration(audio_path)
+    (out_dir / "audio-duration.json").write_text(
+        json.dumps({"audio_duration_seconds": audio_duration}, indent=2),
+        encoding="utf-8",
+    )
 
     if timed_events:
         captions = group_words(timed_events)

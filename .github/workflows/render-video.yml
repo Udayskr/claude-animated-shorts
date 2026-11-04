@@ -69,8 +69,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Validate render duration
-        id: duration
+      - name: Validate requested render duration
         env:
           DURATION_SECONDS: ${{ inputs.duration_seconds }}
         run: |
@@ -79,12 +78,9 @@ jobs:
           import os
           with open("video-config.json", encoding="utf-8") as file:
               config = json.load(file)
-          raw = os.environ.get("DURATION_SECONDS") or config.get("duration_seconds", 10)
-          seconds = int(raw)
+          seconds = int(os.environ.get("DURATION_SECONDS") or config.get("duration_seconds", 10))
           if not 5 <= seconds <= 67:
               raise SystemExit("duration_seconds must be between 5 and 67")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"last_frame={seconds * 30 - 1}\n")
           PY
 
       - name: Generate English narration and word-timed subtitles
@@ -93,11 +89,37 @@ jobs:
           VOICE_NAME: ${{ inputs.voice }}
         run: python scripts/generate_voice.py
 
-      - name: Render vertical MP4
+      - name: Match render duration to narration
+        id: duration
+        env:
+          DURATION_SECONDS: ${{ inputs.duration_seconds }}
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          import os
+          with open("video-config.json", encoding="utf-8") as file:
+              config = json.load(file)
+          requested = int(os.environ.get("DURATION_SECONDS") or config.get("duration_seconds", 10))
+          with open("out/audio-duration.json", encoding="utf-8") as file:
+              audio_seconds = float(json.load(file)["audio_duration_seconds"])
+          if audio_seconds > 66.5:
+              raise SystemExit(f"Narration is {audio_seconds:.2f}s; maximum supported narration is 66.5s for this 67.5s animation.")
+          render_seconds = max(requested, math.ceil(audio_seconds + 0.5))
+          if render_seconds > 67:
+              raise SystemExit("The narration plus ending buffer exceeds the 67-second render limit.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"render_seconds={render_seconds}\\n")
+              output.write(f"last_frame={render_seconds * 30 - 1}\\n")
+          print(f"Voice: {audio_seconds:.2f}s; video render: {render_seconds}s")
+          PY
+
+      - name: Render vertical MP4 (optimized preview quality)
         run: |
           mkdir -p out
-          npx remotion render src/index.ts BridgeShort out/animated-short.mp4 \
-            --frames="0-${{ steps.duration.outputs.last_frame }}" \
+          npx remotion render src/index.ts BridgeShort out/animated-short.mp4 \\
+            --frames="0-${{ steps.duration.outputs.last_frame }}" \\
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":0.7}}' \\
             --codec=h264 --crf=18 --concurrency=2
 
       - name: Upload MP4 and subtitle files
@@ -108,5 +130,6 @@ jobs:
             out/animated-short.mp4
             out/captions.srt
             out/segments.json
+            out/audio-duration.json
           if-no-files-found: error
           retention-days: 7
