@@ -18,7 +18,7 @@ The artifact contains the MP4, an SRT subtitle file, and the caption timing JSON
 - Vertical output: 1080 x 1920, 30 fps.
 - Duration input: 5–67 seconds. The first test defaults to 10 seconds.
 - Voices: Microsoft Edge online TTS voices `en-US-GuyNeural`, `en-US-AriaNeural`, and `en-US-JennyNeural`.
-- Subtitles: generated from Edge TTS word-boundary timings and burned into the video.
+- Subtitles: use Edge TTS boundary metadata when available; otherwise estimate sentence timing from the generated audio duration. Captions are burned into the video.
 - Rendering: Remotion + Three.js on a GitHub-hosted Linux runner. The phone does not render the animation.
 
 ## Important notes
