@@ -97,8 +97,10 @@ async def synthesize(text: str, voice: str):
 
 
 async def main():
-    text = os.environ.get("SCRIPT_TEXT", DEFAULT_SCRIPT).strip()
-    voice = os.environ.get("VOICE_NAME", "en-US-GuyNeural").strip()
+    config_path = Path("video-config.json")
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+    text = (os.environ.get("SCRIPT_TEXT") or config.get("script") or DEFAULT_SCRIPT).strip()
+    voice = (os.environ.get("VOICE_NAME") or config.get("voice") or "en-US-GuyNeural").strip()
 
     if not text:
         raise SystemExit("The narration script is empty.")
