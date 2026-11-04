@@ -1,0 +1,97 @@
+name: Render animated short
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "English narration script"
+        required: true
+        type: string
+        default: "Seventy-four soldiers marched across an iron bridge in perfect rhythm. Each footstep pushed the bridge a little harder. The whole structure began to sway, until the marching itself helped bring it crashing down."
+      voice:
+        description: "English voice"
+        required: true
+        type: choice
+        options:
+          - en-US-GuyNeural
+          - en-US-AriaNeural
+          - en-US-JennyNeural
+        default: en-US-GuyNeural
+      duration_seconds:
+        description: "Render length in seconds (5 to 67)"
+        required: true
+        type: string
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    name: Generate voice, subtitles and MP4
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install JavaScript dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Edge TTS
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate render duration
+        id: duration
+        env:
+          DURATION_SECONDS: ${{ inputs.duration_seconds }}
+        run: |
+          python - <<'PY'
+          import os
+          seconds = int(os.environ["DURATION_SECONDS"])
+          if not 5 <= seconds <= 67:
+              raise SystemExit("duration_seconds must be between 5 and 67")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"last_frame={seconds * 30 - 1}\n")
+          PY
+
+      - name: Generate English narration and word-timed subtitles
+        env:
+          SCRIPT_TEXT: ${{ inputs.script }}
+          VOICE_NAME: ${{ inputs.voice }}
+        run: python scripts/generate_voice.py
+
+      - name: Render vertical MP4
+        run: |
+          mkdir -p out
+          npx remotion render src/index.ts BridgeShort out/animated-short.mp4 \
+            --frames="0-${{ steps.duration.outputs.last_frame }}" \
+            --codec=h264 --crf=18 --concurrency=2
+
+      - name: Upload MP4 and subtitle files
+        uses: actions/upload-artifact@v4
+        with:
+          name: animated-short-${{ github.run_number }}
+          path: |
+            out/animated-short.mp4
+            out/captions.srt
+            out/words.json
+          if-no-files-found: error
+          retention-days: 7
