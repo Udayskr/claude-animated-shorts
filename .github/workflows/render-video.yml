@@ -6,6 +6,8 @@ on:
       - feat/edge-tts-github-actions
     paths:
       - "video-config.json"
+      - "package.json"
+      - "requirements.txt"
       - ".github/workflows/render-video.yml"
       - "scripts/**"
       - "src/**"
