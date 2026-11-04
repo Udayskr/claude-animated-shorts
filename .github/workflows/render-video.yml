@@ -1,6 +1,15 @@
 name: Render animated short
 
 on:
+  push:
+    branches:
+      - feat/edge-tts-github-actions
+    paths:
+      - "video-config.json"
+      - ".github/workflows/render-video.yml"
+      - "scripts/**"
+      - "src/**"
+      - "templates/bridge/**"
   workflow_dispatch:
     inputs:
       script:
@@ -64,8 +73,12 @@ jobs:
           DURATION_SECONDS: ${{ inputs.duration_seconds }}
         run: |
           python - <<'PY'
+          import json
           import os
-          seconds = int(os.environ["DURATION_SECONDS"])
+          with open("video-config.json", encoding="utf-8") as file:
+              config = json.load(file)
+          raw = os.environ.get("DURATION_SECONDS") or config.get("duration_seconds", 10)
+          seconds = int(raw)
           if not 5 <= seconds <= 67:
               raise SystemExit("duration_seconds must be between 5 and 67")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
