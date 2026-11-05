@@ -1,0 +1,68 @@
+name: Profile render effects (diagnostic only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    name: Compare full-resolution render effect costs
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install JavaScript dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Record runner information
+        run: |
+          mkdir -p out/profile
+          {
+            echo "Date: $(date -u +%FT%TZ)"
+            echo "Runner: $(uname -a)"
+            echo "CPU:"
+            nproc
+            echo "Memory:"
+            free -h
+          } | tee out/profile/runner-info.txt
+
+      - name: Baseline - all normal visual effects
+        run: |
+          /usr/bin/time -f "baseline_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/index.ts BridgeShort out/profile/baseline.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      - name: Test - lens blur disabled only
+        run: |
+          /usr/bin/time -f "lens_off_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/index.ts BridgeShort out/profile/lens-off.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":false,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      - name: Test - ink outlines disabled only
+        run: |
+          /usr/bin/time -f "ink_off_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/index.ts BridgeShort out/profile/ink-off.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":false,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      - name: Upload diagnostic results
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-effect-profile-${{ github.run_number }}
+          path: out/profile/
+          if-no-files-found: error
+          retention-days: 7
