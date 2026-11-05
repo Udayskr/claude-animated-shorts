@@ -8,8 +8,6 @@ on:
       - "video-config.json"
       - "package.json"
       - "requirements.txt"
-      - ".github/workflows/render-video.yml"
-      - "scripts/**"
       - "src/**"
       - "templates/bridge/**"
   workflow_dispatch:
@@ -41,7 +39,7 @@ jobs:
   render:
     name: Generate voice, subtitles and MP4
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
