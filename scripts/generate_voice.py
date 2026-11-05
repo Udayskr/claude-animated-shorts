@@ -123,9 +123,11 @@ async def synthesize(text: str, voice: str):
         if kind == "audio":
             audio.extend(data)
         elif kind in ("WordBoundary", "SentenceBoundary"):
-            offset = int(data.get("offset", 0)) / 10_000_000
-            duration = int(data.get("duration", 0)) / 10_000_000
-            token = str(data.get("text", "")).strip()
+            # edge-tts 7.3.x exposes boundary fields at the chunk's top level,
+            # unlike audio chunks whose bytes live in "data".
+            offset = int(chunk.get("offset", 0)) / 10_000_000
+            duration = int(chunk.get("duration", 0)) / 10_000_000
+            token = str(chunk.get("text", "")).strip()
             if token and duration > 0:
                 timed_events.append({
                     "s": max(0.0, offset),
