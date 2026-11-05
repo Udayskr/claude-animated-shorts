@@ -113,7 +113,7 @@ def estimate_sentence_segments(text: str, duration: float):
 
 
 async def synthesize(text: str, voice: str):
-    communicate = edge_tts.Communicate(text, voice, boundary="SentenceBoundary")
+    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
     audio = bytearray()
     timed_events = []
 
