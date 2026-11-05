@@ -114,8 +114,8 @@ jobs:
           print(f"Voice: {audio_seconds:.2f}s; video render: {render_seconds}s")
           PY
 
-      - name: Render vertical MP4 (optimized preview quality)
-        run: npx remotion render src/index.ts BridgeShort out/animated-short.mp4 --frames="0-${{ steps.duration.outputs.last_frame }}" --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":0.7}}' --codec=h264 --crf=18 --concurrency=2
+      - name: Render vertical MP4 (full-resolution quality benchmark)
+        run: npx remotion render src/index.ts BridgeShort out/animated-short.mp4 --frames="0-${{ steps.duration.outputs.last_frame }}" --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' --codec=h264 --crf=18 --concurrency=4
 
       - name: Upload MP4 and subtitle files
         uses: actions/upload-artifact@v4
