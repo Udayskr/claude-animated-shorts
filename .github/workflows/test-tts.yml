@@ -1,0 +1,36 @@
+name: Validate Edge TTS word boundaries
+
+on:
+  push:
+    branches:
+      - feat/edge-tts-github-actions
+    paths:
+      - "scripts/generate_voice.py"
+      - "scripts/test_tts_boundaries.py"
+      - "requirements.txt"
+      - ".github/workflows/test-tts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-tts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Edge TTS
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify live word-boundary metadata
+        run: python scripts/test_tts_boundaries.py
