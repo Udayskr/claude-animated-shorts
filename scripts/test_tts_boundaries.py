@@ -1,7 +1,7 @@
 # Lightweight live integration check for Edge TTS metadata; does not render video.
 import asyncio
 
-from scripts.generate_voice import synthesize
+from generate_voice import synthesize
 
 TEST_TEXT = (
     "This is a word timing test. Every spoken word should have its own "
