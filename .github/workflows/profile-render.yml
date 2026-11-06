@@ -1,4 +1,4 @@
-name: Profile render effects (production DOF diagnostic only)
+name: Profile render concurrency (diagnostic only)
 
 on:
   workflow_dispatch:
@@ -8,11 +8,11 @@ permissions:
 
 jobs:
   profile:
-    name: Compare full-resolution render effect costs with production DOF
+    name: Compare production render concurrency
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
-      - name: Check out render project
+      - name: Check out production render source
         uses: actions/checkout@v4
         with:
           ref: feat/edge-tts-github-actions
@@ -25,99 +25,119 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Install FFmpeg for decoded-frame comparison
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Record runner information
         run: |
           mkdir -p out/profile
           {
             echo "Date: $(date -u +%FT%TZ)"
             echo "Runner: $(uname -a)"
-            echo "CPU:"
+            echo "CPU threads:"
             nproc
             echo "Memory:"
             free -h
           } | tee out/profile/runner-info.txt
 
-      # Match production: both the 16-tap pre blur and 64+32-tap main blur are enabled.
-      - name: Baseline - all normal visual effects
+      # These props match the current production workflow exactly: full effects, pre=false, DPR 1.0.
+      # Only concurrency changes. Render 30 identical frames at production resolution and CRF.
+      - name: Round 1 - concurrency 1
         run: |
-          /usr/bin/time -f "baseline_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/baseline.mp4 \
-            --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
-
-      # Same production effects and quality settings; only skip color reads where sample weight is zero.
-      - name: Test - zero-weight texture sampling skipped
-        run: |
-          /usr/bin/time -f "skip_zero_weight_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/skip-zero-weight.mp4 \
-            --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
-
-      # Isolate the 16-tap pre-blur cost while keeping the 64+32-tap main DOF active.
-      - name: Test - pre blur disabled only
-        run: |
-          /usr/bin/time -f "pre_off_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/pre-off.mp4 \
+          /usr/bin/time -f "round1_c1_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r1-c1.mp4 \
             --frames="0-29" \
             --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
 
-      - name: Test - lens blur disabled only
+      - name: Round 1 - concurrency 2 (production setting)
         run: |
-          /usr/bin/time -f "lens_off_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/lens-off.mp4 \
+          /usr/bin/time -f "round1_c2_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r1-c2.mp4 \
             --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":false,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=2 --timeout=120000
+
+      - name: Round 1 - concurrency 4
+        run: |
+          /usr/bin/time -f "round1_c4_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r1-c4.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=4 --timeout=120000
+
+      - name: Round 2 - concurrency 2 (production setting)
+        run: |
+          /usr/bin/time -f "round2_c2_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r2-c2.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=2 --timeout=120000
+
+      - name: Round 2 - concurrency 4
+        run: |
+          /usr/bin/time -f "round2_c4_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r2-c4.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=4 --timeout=120000
+
+      - name: Round 2 - concurrency 1
+        run: |
+          /usr/bin/time -f "round2_c1_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r2-c1.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
 
-      - name: Test - ink outlines disabled only
+      - name: Round 3 - concurrency 4
         run: |
-          /usr/bin/time -f "ink_off_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/ink-off.mp4 \
+          /usr/bin/time -f "round3_c4_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r3-c4.mp4 \
             --frames="0-29" \
-            --props='{"post":{"ink":false,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=4 --timeout=120000
+
+      - name: Round 3 - concurrency 1
+        run: |
+          /usr/bin/time -f "round3_c1_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r3-c1.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
 
-      # Repeat pair A in the original order to measure run-to-run variation.
-      - name: Repeat A - baseline all normal visual effects
+      - name: Round 3 - concurrency 2 (production setting)
         run: |
-          /usr/bin/time -f "repeat_a_baseline_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-a-baseline.mp4 \
+          /usr/bin/time -f "round3_c2_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/r3-c2.mp4 \
             --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+            --props='{"post":{"ink":true,"lens":true,"pre":false,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=2 --timeout=120000
 
-      - name: Repeat A - zero-weight texture sampling skipped
+      - name: Compare decoded video frames for visual consistency
         run: |
-          /usr/bin/time -f "repeat_a_optimized_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-a-optimized.mp4 \
-            --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+          set -e
+          for file in out/profile/*.mp4; do
+            ffmpeg -v error -i "$file" -map 0:v:0 -f framemd5 "${file%.mp4}.framemd5"
+          done
+          reference="out/profile/r1-c1.framemd5"
+          {
+            echo "Reference: $reference"
+            for file in out/profile/*.framemd5; do
+              if cmp -s "$reference" "$file"; then
+                echo "IDENTICAL: $file"
+              else
+                echo "DIFFERENT: $file"
+              fi
+            done
+          } | tee out/profile/frame-comparison.txt
 
-      # Reverse the order in pair B to reduce ordering and runner-load bias.
-      - name: Repeat B - zero-weight texture sampling skipped
-        run: |
-          /usr/bin/time -f "repeat_b_optimized_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-b-optimized.mp4 \
-            --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
-
-      - name: Repeat B - baseline all normal visual effects
-        run: |
-          /usr/bin/time -f "repeat_b_baseline_seconds=%e" -o out/profile/timings.txt -a \
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-b-baseline.mp4 \
-            --frames="0-29" \
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
-            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
-
-      - name: Upload diagnostic results
+      - name: Upload concurrency benchmark
         uses: actions/upload-artifact@v4
         with:
-          name: render-effect-profile-${{ github.run_number }}
+          name: render-concurrency-profile-${{ github.run_number }}
           path: out/profile/
           if-no-files-found: error
           retention-days: 7
