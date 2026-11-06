@@ -54,6 +54,7 @@ jobs:
             --frames="0-29" \
             --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
       # Isolate the 16-tap pre-blur cost while keeping the 64+32-tap main DOF active.
       - name: Test - pre blur disabled only
         run: |
@@ -77,6 +78,40 @@ jobs:
             npx remotion render src/profile-index.ts BridgeProfile out/profile/ink-off.mp4 \
             --frames="0-29" \
             --props='{"post":{"ink":false,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      # Repeat pair A in the original order to measure run-to-run variation.
+      - name: Repeat A - baseline all normal visual effects
+        run: |
+          /usr/bin/time -f "repeat_a_baseline_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-a-baseline.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      - name: Repeat A - zero-weight texture sampling skipped
+        run: |
+          /usr/bin/time -f "repeat_a_optimized_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-a-optimized.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      # Reverse the order in pair B to reduce ordering and runner-load bias.
+      - name: Repeat B - zero-weight texture sampling skipped
+        run: |
+          /usr/bin/time -f "repeat_b_optimized_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-b-optimized.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
+            --codec=h264 --crf=18 --concurrency=1 --timeout=120000
+
+      - name: Repeat B - baseline all normal visual effects
+        run: |
+          /usr/bin/time -f "repeat_b_baseline_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/repeat-b-baseline.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
 
       - name: Upload diagnostic results
