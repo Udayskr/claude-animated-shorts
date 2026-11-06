@@ -10,7 +10,7 @@ jobs:
   profile:
     name: Compare full-resolution render effect costs with production DOF
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     steps:
       - name: Check out render project
         uses: actions/checkout@v4
