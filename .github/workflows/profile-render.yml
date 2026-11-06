@@ -49,10 +49,10 @@ jobs:
       # Same production effects and quality settings; only skip color reads where sample weight is zero.
       - name: Test - zero-weight texture sampling skipped
         run: |
-          /usr/bin/time -f "skip_zero_weight_seconds=%e" -o out/profile/timings.txt -a \\
-            npx remotion render src/profile-index.ts BridgeProfile out/profile/skip-zero-weight.mp4 \\
-            --frames="0-29" \\
-            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \\
+          /usr/bin/time -f "skip_zero_weight_seconds=%e" -o out/profile/timings.txt -a \
+            npx remotion render src/profile-index.ts BridgeProfile out/profile/skip-zero-weight.mp4 \
+            --frames="0-29" \
+            --props='{"post":{"ink":true,"lens":true,"pre":true,"bloom":true,"grade":true,"grain":false,"dpr":1.0,"skipZeroWeightSamples":true}}' \
             --codec=h264 --crf=18 --concurrency=1 --timeout=120000
 
       # Isolate the 16-tap pre-blur cost while keeping the 64+32-tap main DOF active.
