@@ -43,7 +43,12 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
       float rs = abs(cocAt(ds, s)) * SPREAD;
       if (ds > d0) rs = min(rs, R);            // background never bleeds over a nearer pixel
       float w = clamp(rs - rr + 0.5, 0.0, 1.0); // does the sample's disc reach us?
-      acc += texture2D(inputBuffer, suv).rgb * w; wsum += w;
+#if SKIP_ZERO_WEIGHT_SAMPLES == 1
+      if (w > 0.0) acc += texture2D(inputBuffer, suv).rgb * w;
+#else
+      acc += texture2D(inputBuffer, suv).rgb * w;
+#endif
+      wsum += w;
     }
   }
   vec3 col = acc / wsum;
@@ -59,7 +64,12 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     if (ds >= d0 * 0.97) continue;              // only things in front of us
     float rs = abs(cocAt(ds, s));
     float w = clamp(rs - rr + 0.5, 0.0, 1.0);
-    fg += texture2D(inputBuffer, suv).rgb * w; fw += w;
+#if SKIP_ZERO_WEIGHT_SAMPLES == 1
+    if (w > 0.0) fg += texture2D(inputBuffer, suv).rgb * w;
+#else
+    fg += texture2D(inputBuffer, suv).rgb * w;
+#endif
+    fw += w;
     cov += w * (M * M) / max(rs * rs, 1.0);
   }
   if (fw > 0.0) col = mix(col, fg / fw, clamp(cov / float(NEAR_TAPS), 0.0, 1.0));
@@ -72,12 +82,12 @@ const PRE: Stage = { taps: 16, spread: 0.287, nearTaps: 0, rot: 0.61 };
 const MAIN: Stage = { taps: 64, spread: 0.958, nearTaps: 32, rot: 0 };
 
 export class LensBlurEffect extends Effect {
-  constructor({ maxCoC = 24, nearScale = 1.2, stage = MAIN }: { maxCoC?: number; nearScale?: number; stage?: Stage } = {}) {
+  constructor({ maxCoC = 24, nearScale = 1.2, stage = MAIN, skipZeroWeightSamples = false }: { maxCoC?: number; nearScale?: number; stage?: Stage; skipZeroWeightSamples?: boolean } = {}) {
     super("LensBlurEffect", frag, {
       blendFunction: BlendFunction.NORMAL,
       attributes: EffectAttribute.DEPTH | EffectAttribute.CONVOLUTION,
       defines: new Map<string, string>([
-        ["TAPS", String(stage.taps)], ["SPREAD", stage.spread.toFixed(4)], ["NEAR_TAPS", String(stage.nearTaps)], ["ROT", stage.rot.toFixed(4)],
+        ["TAPS", String(stage.taps)], ["SPREAD", stage.spread.toFixed(4)], ["NEAR_TAPS", String(stage.nearTaps)], ["ROT", stage.rot.toFixed(4)], ["SKIP_ZERO_WEIGHT_SAMPLES", skipZeroWeightSamples ? "1" : "0"],
       ]),
       uniforms: new Map<string, Uniform>([
         ["focus", new Uniform(10)], ["cInf", new Uniform(0)], ["nearScale", new Uniform(nearScale)], ["maxCoC", new Uniform(maxCoC)],
@@ -94,9 +104,9 @@ export class LensBlurEffect extends Effect {
 export class LensBlur {
   readonly pre: LensBlurEffect;
   readonly main: LensBlurEffect;
-  constructor({ maxCoC = 24, nearScale = 1.2 } = {}) {
-    this.pre = new LensBlurEffect({ maxCoC, nearScale, stage: PRE });
-    this.main = new LensBlurEffect({ maxCoC, nearScale, stage: MAIN });
+  constructor({ maxCoC = 24, nearScale = 1.2, skipZeroWeightSamples = false }: { maxCoC?: number; nearScale?: number; skipZeroWeightSamples?: boolean } = {}) {
+    this.pre = new LensBlurEffect({ maxCoC, nearScale, stage: PRE, skipZeroWeightSamples });
+    this.main = new LensBlurEffect({ maxCoC, nearScale, stage: MAIN, skipZeroWeightSamples });
   }
   set focus(v: number) { this.pre.focus = v; this.main.focus = v; }
   set cInf(v: number) { this.pre.cInf = v; this.main.cInf = v; }
