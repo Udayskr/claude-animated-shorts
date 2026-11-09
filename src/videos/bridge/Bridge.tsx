@@ -6,11 +6,11 @@
 // source; the grade is display-referred, so it comes after tone mapping. Every pixel-sized parameter is specified at
 // 1080x1920 and scaled with the output size, so stills at --scale 0.5 and the 1440x2560 final match.
 // Place changes crossfade by stacking a second canvas for the fade frames; the hook ends on a 4-frame white flash.
-import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { AbsoluteFill, cancelRender, continueRender, delayRender, getInputProps, useCurrentFrame } from "remotion";
+import { AbsoluteFill, cancelRender, continueRender, delayRender, getInputProps, useCurrentFrame, useDelayRender } from "remotion";
 import { ThreeCanvas } from "@remotion/three";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
 import { BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode } from "postprocessing";
 import { World, loadKit } from "./world";
@@ -58,7 +58,24 @@ const useKit = () => {
 
 const Inner: React.FC<{ id: number; kit: Kit }> = ({ id, kit }) => {
   const f = useCurrentFrame();
-  const { camera, scene } = useThree();
+  const { camera, scene, advance } = useThree();
+  const { delayRender: delayFirstDraw, continueRender: finishFirstDraw } = useDelayRender();
+  const [firstDrawHandle] = useState(() => delayFirstDraw("bridge first WebGL draw"));
+  const firstDrawDone = useRef(false);
+  // Keep this browser tab's first frame blocked until the post-processing render pass
+  // has completed. Remotion assigns the first frame of a render to every browser tab;
+  // ThreeCanvas' creation hold alone can release before this first composed draw.
+  useFrame(() => {
+    if (!firstDrawDone.current) {
+      firstDrawDone.current = true;
+      finishFirstDraw(firstDrawHandle);
+    }
+  }, 2);
+  // Force a draw after the R3F subtree and EffectComposer have committed. The priority-2
+  // callback above runs after EffectComposer (priority 1), so the hold is released last.
+  useEffect(() => {
+    advance(performance.now());
+  }, [advance]);
   const world = useMemo(() => new World(kit), [kit]);
   const target = useMemo(() => new THREE.Vector3(), []);
   const on = useMemo(toggles, []);
