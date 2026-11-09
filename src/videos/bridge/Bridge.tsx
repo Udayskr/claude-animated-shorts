@@ -6,9 +6,9 @@
 // source; the grade is display-referred, so it comes after tone mapping. Every pixel-sized parameter is specified at
 // 1080x1920 and scaled with the output size, so stills at --scale 0.5 and the 1440x2560 final match.
 // Place changes crossfade by stacking a second canvas for the fade frames; the hook ends on a 4-frame white flash.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { AbsoluteFill, continueRender, delayRender, getInputProps, useCurrentFrame } from "remotion";
+import { AbsoluteFill, cancelRender, continueRender, delayRender, getInputProps, useCurrentFrame } from "remotion";
 import { ThreeCanvas } from "@remotion/three";
 import { useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
@@ -42,7 +42,17 @@ const fwd = new THREE.Vector3(), fpt = new THREE.Vector3();
 const useKit = () => {
   const [kit, setKit] = useState<Kit | null>(null);
   const [handle] = useState(() => delayRender("bridge kit"));
-  useEffect(() => { loadKit().then((k) => { setKit(k); continueRender(handle); }); }, [handle]);
+  useEffect(() => {
+    loadKit()
+      .then(setKit)
+      .catch((err) => cancelRender(err instanceof Error ? err : new Error(String(err))));
+  }, []);
+  // Release only after React has committed the loaded kit and mounted its ThreeCanvas.
+  // Releasing in the loadKit promise can let Remotion capture the initial blank canvas,
+  // especially when multiple browser tabs start rendering concurrently.
+  useLayoutEffect(() => {
+    if (kit) continueRender(handle);
+  }, [kit, handle]);
   return kit;
 };
 
